@@ -1,19 +1,22 @@
 import os
 import logging
-from datetime import datetime
 import asyncio
-from aiogram import Bot, Dispatcher
+import random
+from datetime import datetime
+from aiogram import Bot, Dispatcher, types
 from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
-from trainings import trainings
+from aiogram.enums import ParseMode
 from flask import Flask
+from trainings import trainings
 
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
-bot = Bot(token=TOKEN)
+
+bot = Bot(token=TOKEN, parse_mode=ParseMode.HTML)
 dp = Dispatcher()
 START_DATE = datetime(2025, 6, 30)
 
-# Flask app to keep Render happy
+# Flask app to keep Render alive
 web_app = Flask(__name__)
 
 @web_app.route("/")
@@ -24,14 +27,24 @@ def home():
 def ping():
     return "pong"
 
+# Список кастомных ответов на кнопку
+REACTIONS = [
+    "Отлично, продолжаем в том же духе! 💪",
+    "Тренировка засчитана! До завтра 🏋️",
+    "Красавчик! Один шаг ближе к цели 🔥",
+    "Так держать! Увидимся на следующей тренировке 👊",
+    "Молодец! Главное — стабильность 🙌"
+]
+
 async def send_training():
     while True:
         now = datetime.utcnow()
-        if now.hour == 10 and now.minute == 0:
+        if now.hour == 6 and now.minute == 0:  # 09:00 по МСК (UTC+3)
             delta_days = (now.date() - START_DATE.date()).days
-            day_index = delta_days % 28
+            day_index = delta_days % len(trainings)
             training = trainings[day_index]
-            text = f"🏋️ День {day_index + 1}:\n{training}\n\n✅ Выполнено?"
+
+            text = f"🏋️ День {day_index + 1}: {training['title']}\n\n{training['description']}\n\n✅ Выполнено?"
             keyboard = InlineKeyboardMarkup(
                 inline_keyboard=[
                     [InlineKeyboardButton(text="Выполнено ✅", callback_data="done")]
@@ -40,7 +53,14 @@ async def send_training():
 
             if CHAT_ID:
                 await bot.send_message(chat_id=CHAT_ID, text=text, reply_markup=keyboard)
-        await asyncio.sleep(60)  # Проверка каждую минуту
+
+        await asyncio.sleep(60)
+
+@dp.callback_query()
+async def on_button_press(callback: types.CallbackQuery):
+    if callback.data == "done":
+        reply = random.choice(REACTIONS)
+        await callback.answer(reply, show_alert=True)
 
 @dp.startup()
 async def on_startup(dispatcher):
