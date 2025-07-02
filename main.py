@@ -32,12 +32,13 @@ async def send_training():
             training = trainings[day_index]
             text = f"🏋️ День {day_index + 1}: {workout['title']}\n\n{workout['description']}"
 
-{training}
+async def send_training():
+    ...
+    text = f"🏋️ День {day_index + 1}:\n{training}\n\n✅ Выполнено?"
+    keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Выполнено ✅", callback_data="done")]])
 
-text = f"🏋️ День {day_index + 1}:\n{training}\n\n✅ Выполнено?"
-
-            if CHAT_ID:
-                await bot.send_message(chat_id=CHAT_ID, text=text)
+    if CHAT_ID:
+        await bot.send_message(chat_id=CHAT_ID, text=text, reply_markup=keyboard)
         await asyncio.sleep(60)
 
 @dp.startup()
