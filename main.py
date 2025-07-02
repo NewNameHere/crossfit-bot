@@ -3,6 +3,7 @@ import logging
 from datetime import datetime
 import asyncio
 from aiogram import Bot, Dispatcher
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from trainings import trainings
 from flask import Flask
 
@@ -30,16 +31,16 @@ async def send_training():
             delta_days = (now.date() - START_DATE.date()).days
             day_index = delta_days % 28
             training = trainings[day_index]
-            text = f"🏋️ День {day_index + 1}: {workout['title']}\n\n{workout['description']}"
+            text = f"🏋️ День {day_index + 1}:\n{training}\n\n✅ Выполнено?"
+            keyboard = InlineKeyboardMarkup(
+                inline_keyboard=[
+                    [InlineKeyboardButton(text="Выполнено ✅", callback_data="done")]
+                ]
+            )
 
-async def send_training():
-    ...
-    text = f"🏋️ День {day_index + 1}:\n{training}\n\n✅ Выполнено?"
-    keyboard = InlineKeyboardMarkup(inline_keyboard=[[InlineKeyboardButton(text="Выполнено ✅", callback_data="done")]])
-
-    if CHAT_ID:
-        await bot.send_message(chat_id=CHAT_ID, text=text, reply_markup=keyboard)
-        await asyncio.sleep(60)
+            if CHAT_ID:
+                await bot.send_message(chat_id=CHAT_ID, text=text, reply_markup=keyboard)
+        await asyncio.sleep(60)  # Проверка каждую минуту
 
 @dp.startup()
 async def on_startup(dispatcher):
@@ -50,3 +51,4 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.create_task(dp.start_polling(bot))
     web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+
