@@ -34,7 +34,8 @@ async def send_training():
 
 {training}
 
-✅ Выполнено?"
+text = f"🏋️ День {day_index + 1}:\n{training}\n\n✅ Выполнено?"
+
             if CHAT_ID:
                 await bot.send_message(chat_id=CHAT_ID, text=text)
         await asyncio.sleep(60)
