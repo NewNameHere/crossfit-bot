@@ -30,7 +30,8 @@ async def send_training():
             delta_days = (now.date() - START_DATE.date()).days
             day_index = delta_days % 28
             training = trainings[day_index]
-            text = f"🏋️ День {day_index + 1}:\n{workout}"
+            text = f"🏋️ День {day_index + 1}: {workout['title']}\n\n{workout['description']}"
+
 {training}
 
 ✅ Выполнено?"
