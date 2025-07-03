@@ -4,33 +4,30 @@ import asyncio
 import random
 from datetime import datetime
 from flask import Flask
+from threading import Thread
+
 from aiogram import Bot, Dispatcher, types
 from aiogram.enums import ParseMode
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from aiogram.client.default import DefaultBotProperties
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.fsm.storage.memory import MemoryStorage
+
 from trainings import trainings
 
-# Получаем переменные окружения
 TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
 CHAT_ID = os.getenv("CHAT_ID")
 
-# Настройка бота
 bot = Bot(token=TOKEN, default=DefaultBotProperties(parse_mode=ParseMode.HTML))
-dp = Dispatcher()
-START_DATE = datetime(2025, 6, 30)
+dp = Dispatcher(storage=MemoryStorage())
 
-# Flask-приложение для Render (не даст уснуть боту)
-web_app = Flask(__name__)
+app = Flask(__name__)
 
-@web_app.route("/")
+@app.route("/")
 def home():
     return "Samuel CrossFit Bot is running."
 
-@web_app.route("/ping")
-def ping():
-    return "pong"
+START_DATE = datetime(2025, 6, 30)
 
-# Ответы на кнопку
 REACTIONS = [
     "Отлично, продолжаем в том же духе! 💪",
     "Тренировка засчитана! До завтра 🏋️",
@@ -39,45 +36,42 @@ REACTIONS = [
     "Молодец! Главное — стабильность 🙌"
 ]
 
-# Отправка тренировок в 09:00 по Москве (06:00 UTC)
-async def send_training():
+async def send_daily_workout():
     while True:
         now = datetime.utcnow()
         if now.hour == 6 and now.minute == 0:
             delta_days = (now.date() - START_DATE.date()).days
-            day_index = delta_days % len(trainings)
-            training = trainings[day_index]
+            index = delta_days % len(trainings)
+            training = trainings[index]
 
-            text = f"🏋️ День {day_index + 1}: {training['title']}\n\n{training['description']}\n\n✅ Выполнено?"
-            keyboard = InlineKeyboardMarkup(
-                inline_keyboard=[[InlineKeyboardButton(text="Выполнено ✅", callback_data="done")]]
-            )
-
+            text = f"🏋️ День {index + 1}: {training['title']}\n\n{training['description']}\n\n✅ Выполнено?"
+            keyboard = InlineKeyboardMarkup(inline_keyboard=[
+                [InlineKeyboardButton(text="Выполнено ✅", callback_data="done")]
+            ])
             if CHAT_ID:
-                await bot.send_message(chat_id=CHAT_ID, text=text, reply_markup=keyboard)
+                await bot.send_message(CHAT_ID, text, reply_markup=keyboard)
 
         await asyncio.sleep(60)
 
-# Ответ на кнопку
 @dp.callback_query()
-async def on_button_press(callback: types.CallbackQuery):
-    if callback.data == "done":
-        reply = random.choice(REACTIONS)
-        await callback.answer(reply, show_alert=True)
+async def handle_callback(call: types.CallbackQuery):
+    if call.data == "done":
+        await call.answer(random.choice(REACTIONS), show_alert=True)
 
-# Ответ на любое текстовое сообщение — чтобы проверить, что бот работает
 @dp.message()
-async def on_message(message: types.Message):
-    await bot.send_message(chat_id=message.chat.id, text="✅ Бот работает и ждёт следующую тренировку!")
+async def handle_any_message(message: types.Message):
+    await message.answer("✅ Бот работает! Напоминания придут автоматически.")
 
-# Запуск бота
-@dp.startup()
-async def on_startup(dispatcher):
-    asyncio.create_task(send_training())
+async def start_bot():
+    await dp.start_polling(bot)
 
-# Точка входа
+def run_asyncio_loop():
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    loop.create_task(send_daily_workout())
+    loop.run_until_complete(start_bot())
+
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
-    loop = asyncio.get_event_loop()
-    loop.create_task(dp.start_polling(bot))
-    web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    Thread(target=run_asyncio_loop).start()
+    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
