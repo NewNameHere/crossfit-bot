@@ -62,8 +62,11 @@ async def on_button_press(callback: types.CallbackQuery):
 
 @dp.message()
 async def on_message(message: types.Message):
-    # Отвечает на любое текстовое сообщение
-    await bot.send_message(chat_id=message.chat.id, text="✅ Бот работает и ждёт следующую тренировку!")
+    await bot.send_message(
+        chat_id=message.chat.id,
+        text="✅ Бот работает и ждёт следующую тренировку!"
+    )
+
 
 @dp.startup()
 async def on_startup(dispatcher):
