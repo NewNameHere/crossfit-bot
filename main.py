@@ -3,9 +3,9 @@ import logging
 import asyncio
 import random
 from datetime import datetime
-from aiogram import Bot, Dispatcher, types
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram import Bot, Dispatcher, types, F
 from aiogram.enums import ParseMode
+from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
 from flask import Flask
 from trainings import trainings
 
@@ -27,7 +27,7 @@ def home():
 def ping():
     return "pong"
 
-# Список кастомных ответов на кнопку
+# Кастомные реакции на кнопку
 REACTIONS = [
     "Отлично, продолжаем в том же духе! 💪",
     "Тренировка засчитана! До завтра 🏋️",
@@ -37,9 +37,12 @@ REACTIONS = [
 ]
 
 async def send_training():
+    sent_today = False
     while True:
         now = datetime.utcnow()
-        if now.hour == 6 and now.minute == 0:  # 09:00 по МСК (UTC+3)
+
+        # 09:00 МСК = 06:00 UTC
+        if now.hour == 6 and now.minute in (0, 1, 2) and not sent_today:
             delta_days = (now.date() - START_DATE.date()).days
             day_index = delta_days % len(trainings)
             training = trainings[day_index]
@@ -53,8 +56,16 @@ async def send_training():
 
             if CHAT_ID:
                 await bot.send_message(chat_id=CHAT_ID, text=text, reply_markup=keyboard)
+                sent_today = True
+
+        if now.hour == 0 and now.minute == 0:
+            sent_today = False
 
         await asyncio.sleep(60)
+
+@dp.message(F.text.lower() == "/ping")
+async def ping_reply(message: types.Message):
+    await message.answer("✅ Бот работает. Готов к следующей тренировке!")
 
 @dp.callback_query()
 async def on_button_press(callback: types.CallbackQuery):
@@ -71,4 +82,3 @@ if __name__ == "__main__":
     loop = asyncio.get_event_loop()
     loop.create_task(dp.start_polling(bot))
     web_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
-
